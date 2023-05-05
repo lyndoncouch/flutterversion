@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'dart:async';
 import 'package:http/http.dart' as http;
+import 'package:localstorage/localstorage.dart';
 import 'dart:convert';
 
 void main() {
@@ -15,9 +16,15 @@ class VersionsApp extends StatefulWidget {
 }
 
 class _VersionsAppState extends State<VersionsApp> {
-//  String? _user, _password, _scheme, _host, _port;
+  final LocalStorage storage = LocalStorage('localstorage_app');
   String? _selectedComponent;
-  List components = [];
+  List _components = [];
+  TextEditingController userController = TextEditingController();
+  TextEditingController passwordController = TextEditingController();
+  TextEditingController schemeController = TextEditingController();
+  TextEditingController hostController = TextEditingController();
+  TextEditingController portController = TextEditingController();
+  TextEditingController baseVersionController = TextEditingController();
 
   Future<String> getComponentData() async {
     Uri uri = Uri(
@@ -31,15 +38,31 @@ class _VersionsAppState extends State<VersionsApp> {
     var res = await http.get(uri, headers: {"Accept": "application/json"});
     var resBody = json.decode(res.body);
     // _selectedComponent = resBody[0];
-    setState(
-        () => {components = resBody, _selectedComponent = resBody[0]["value"]});
+    setState(() =>
+        {_components = resBody, _selectedComponent = resBody[0]["value"]});
     return "Success";
+  }
+
+  void getLocalStorageSpecific(TextEditingController controller, String key) {
+    String value = storage.getItem(key) ?? "";
+    controller.text = value;
+  }
+
+  Future<String> getLocalStorage() async {
+    await storage.ready;
+    getLocalStorageSpecific(userController, "user");
+    getLocalStorageSpecific(passwordController, "password");
+    getLocalStorageSpecific(schemeController, "scheme");
+    getLocalStorageSpecific(hostController, "host");
+    getLocalStorageSpecific(portController, "port");
+    return "Ok";
   }
 
   @override
   void initState() {
     super.initState();
     getComponentData();
+    getLocalStorage();
   }
 
   // This widget is the root of your application.
@@ -79,11 +102,11 @@ class _VersionsAppState extends State<VersionsApp> {
         padding: const EdgeInsets.all(32),
         child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
-            //   mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            // mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: <Widget>[
               DropdownButton(
                 hint: const Text("Select Component"),
-                items: components.map((item) {
+                items: _components.map((item) {
                   return DropdownMenuItem(
                       value: item['artifactory'].toString(),
                       child: Text(item['name']));
@@ -96,16 +119,20 @@ class _VersionsAppState extends State<VersionsApp> {
               // child: Text('should be dropdown'),
               // )
               TextFormField(
+                controller: baseVersionController,
                 decoration: const InputDecoration(
                     labelText: "Select Base Version",
                     hintText: "2.1 or 3.10 or leave blank for most recent"),
               ),
-              ElevatedButton(
-                style: ElevatedButton.styleFrom(
-                    textStyle: const TextStyle(fontSize: 20)),
-                onPressed: null,
-                child: const Text("Find Version"),
-              ),
+              Container(
+                padding: const EdgeInsets.only(top: 32.0),
+                child: ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                      textStyle: const TextStyle(fontSize: 20)),
+                  onPressed: null,
+                  child: const Text("Find Version"),
+                ),
+              )
             ]));
   }
 
@@ -116,17 +143,63 @@ class _VersionsAppState extends State<VersionsApp> {
         builder: (context) {
           return AlertDialog(
             title: const Text("Configuration", style: TextStyle(fontSize: 24)),
-            shape:
-                RoundedRectangleBorder(borderRadius: BorderRadius.circular(40)),
-            contentPadding: const EdgeInsets.all(32),
-            elevation: 16,
-            content: 
-				Column(
-					
-					
-					children: [],
-				)
-
+            content: Column(mainAxisSize: MainAxisSize.min, children: [
+              TextFormField(
+                decoration: const InputDecoration(
+                    icon: Icon(Icons.person),
+                    hintText: "Your domain userid",
+                    labelText: "User Name"),
+                controller: userController,
+              ),
+              TextFormField(
+                  decoration: const InputDecoration(
+                      icon: Icon(Icons.password),
+                      hintText: "Your domain password",
+                      labelText: "Password"),
+                  obscureText: true,
+                  controller: passwordController),
+              TextFormField(
+                decoration: const InputDecoration(
+                    icon: Icon(Icons.schema),
+                    hintText: "http/https",
+                    labelText: "Scheme"),
+                controller: schemeController,
+              ),
+              TextFormField(
+                decoration: const InputDecoration(
+                    icon: Icon(Icons.computer),
+                    hintText: "The server host",
+                    labelText: "Host"),
+                controller: hostController,
+              ),
+              TextFormField(
+                decoration: const InputDecoration(
+                    icon: Icon(Icons.numbers),
+                    hintText: "Server port",
+                    labelText: "Port"),
+                controller: portController,
+              ),
+            ]),
+            actions: <Widget>[
+              TextButton(
+                child: const Text("Remember"),
+                onPressed: () {
+                  storage.setItem("user", userController.text);
+                  storage.setItem("password", passwordController.text);
+                  storage.setItem("scheme", schemeController.text);
+                  storage.setItem("host", hostController.text);
+                  storage.setItem("port", portController.text);
+                  Navigator.of(context).pop();
+                },
+              ),
+              TextButton(
+                child: const Text("Don't Remember"),
+                onPressed: () {
+                  Navigator.of(context).pop();
+                },
+              )
+            ],
+          );
         });
   }
 }
